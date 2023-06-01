@@ -45,10 +45,6 @@ impl<Guild> GuildList<Guild> {
         };
         self.state.select(Some(i));
     }
-
-    pub fn unselect(&mut self) {
-        self.state.select(None);
-    }
 }
 
 #[derive(Debug)]
@@ -93,9 +89,5 @@ impl<Channel> StatefulList<Channel> {
             None => 0,
         };
         self.state.select(Some(i));
-    }
-
-    pub fn unselect(&mut self) {
-        self.state.select(None);
     }
 }

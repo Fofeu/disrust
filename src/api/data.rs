@@ -7,7 +7,9 @@ fn get_length(list: &serde_json::Value) -> usize {
     let the_length = list.as_array();
     match the_length {
         Some(_v) => (),
-        None => {panic!("TRIED TO GET LENGTH OF AN EMPTY RESPONSE")}
+        None => {
+            panic!("TRIED TO GET LENGTH OF AN EMPTY RESPONSE")
+        }
     }
     return the_length.unwrap().len();
 }
@@ -25,10 +27,7 @@ impl Connection {
         let auth = ("authorization".to_string(), token.to_string());
         let client = Client::new();
 
-        return Connection {
-            auth,
-            client
-        };
+        return Connection { auth, client };
     }
 }
 
@@ -50,7 +49,7 @@ impl GatewayResponse {
 
     //Send initial data like guilds
     pub fn ready(guilds: Vec<Guild>) -> GatewayResponse {
-        GatewayResponse { 
+        GatewayResponse {
             operation: "READY".to_string(),
             message: Msg::new(),
             guilds,
@@ -81,17 +80,16 @@ impl User {
         User {
             id,
             name,
-            discriminator
+            discriminator,
         }
     }
 }
-
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Guild {
     pub id: String,
     pub name: String,
-    pub channels: Vec<Channel>
+    pub channels: Vec<Channel>,
 }
 
 impl Guild {
@@ -106,10 +104,17 @@ impl Guild {
         let guild_directory = String::from("14");
         let guild_forum = String::from("15");
 
-        let ignored_channels = Vec::from([ 
-            guild_vc, category, announcement_thread, public_thread, private_thread,
-            guild_stage_vc, guild_directory, guild_forum]);
-        
+        let ignored_channels = Vec::from([
+            guild_vc,
+            category,
+            announcement_thread,
+            public_thread,
+            private_thread,
+            guild_stage_vc,
+            guild_directory,
+            guild_forum,
+        ]);
+
         let guilds = &event["guilds"];
         let length = get_length(&guilds);
         let mut guild_list = Vec::new();
@@ -129,34 +134,19 @@ impl Guild {
                 }
             }
 
-            let guild = Guild {
-                id,
-                name,
-                channels
-            };
+            let guild = Guild { id, name, channels };
             guild_list.push(guild);
         }
 
         return guild_list;
     }
 
-    //get rid of eventually
-    pub fn from_partial(event: &Value) -> Guild {
-        let id = event["id"].as_str().unwrap().to_string();
-        let name = event["name"].as_str().unwrap().to_string();
-
-        Guild {
-            id,
-            name,
-            channels: Vec::new()
-        }
-    }
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Channel {
-    pub id: String, 
-    pub name: String, 
+    pub id: String,
+    pub name: String,
     pub channel_type: String,
 }
 
@@ -169,7 +159,7 @@ impl Channel {
         Channel {
             id,
             name,
-            channel_type
+            channel_type,
         }
     }
 }
@@ -202,10 +192,10 @@ impl Msg {
         let content = event["content"].as_str().unwrap().to_string();
 
         Msg {
-            id, 
+            id,
             channel_id,
             user,
-            content
+            content,
         }
     }
 }

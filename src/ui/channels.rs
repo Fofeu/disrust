@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use crate::api::{data::*, wrapper};
-use crate::ui::StatefulLists::*;
+use crate::ui::stateful_lists::*;
 
 #[derive(Debug)]
 pub enum DisplayMode {
     GuildMode,
-    ChannelMode
+    ChannelMode,
 }
 
 pub struct App {
@@ -25,7 +25,7 @@ impl App {
             guilds: GuildList::with_items(guilds),
             loaded_channels: HashMap::new(),
             mode: DisplayMode::GuildMode,
-            conn
+            conn,
         };
 
         return app;
@@ -38,7 +38,7 @@ impl App {
             "MESSAGE_CREATE" => {
                 let mut channel_found = Vec::new();
                 let gate_channel_id = &gate_response.message.channel_id;
-                for (key, value) in &self.loaded_channels {
+                for (key, _) in &self.loaded_channels {
                     // println!("current channel id: {}, looking for: {}", &key.id, gate_channel_id);
                     let channel_id = &key.id;
                     if channel_id == gate_channel_id {
@@ -53,8 +53,10 @@ impl App {
                     self.loaded_channels.insert(key, old_messages);
                     // dbg!(&self.loaded_channels);
                 }
-            },
-            "READY" => {dbg!(&gate_response.guilds);},
+            }
+            "READY" => {
+                dbg!(&gate_response.guilds);
+            }
             _ => (),
         }
     }
@@ -81,7 +83,7 @@ impl App {
         return self.items.items[index].clone();
     }
 
-    pub fn get_guild(&mut self) -> Guild{
+    pub fn get_guild(&mut self) -> Guild {
         let index = self.guilds.state.selected();
         let index = match index {
             Some(v) => v,
@@ -94,20 +96,20 @@ impl App {
     pub fn get_current_title(&mut self) -> String {
         let selected_type = self.get_guild();
         match self.mode {
-            DisplayMode::GuildMode => {},
+            DisplayMode::GuildMode => selected_type.name,
             DisplayMode::ChannelMode => {
                 //Marks as unused even though it is ?
+                //You should check scoping Rust's scoping rules
                 let selected_type = self.get_channel();
+                selected_type.name
             }
         }
-
-        return selected_type.name;
     }
 
     //CLONES EVERYTIME, PROBABLY SLOW
     pub fn get_messages(&mut self) -> Option<Vec<Msg>> {
         match self.mode {
-            DisplayMode::GuildMode => {return None},
+            DisplayMode::GuildMode => return None,
             DisplayMode::ChannelMode => {}
         }
 
@@ -115,7 +117,7 @@ impl App {
 
         match self.loaded_channels.contains_key(&current_channel) {
             true => return Some(self.loaded_channels[&current_channel].clone()),
-            false => None
+            false => None,
         }
     }
 
@@ -124,9 +126,11 @@ impl App {
         match self.mode {
             DisplayMode::GuildMode => {
                 self.guilds.next();
-                return
-            },
-            DisplayMode::ChannelMode => {self.items.next();}
+                return;
+            }
+            DisplayMode::ChannelMode => {
+                self.items.next();
+            }
         }
 
         let current_channel = self.get_channel();
@@ -136,8 +140,13 @@ impl App {
             let messages = wrapper::messages(&self.conn, &current_channel);
 
             match messages {
-                Ok(v) => {self.loaded_channels.insert(current_channel, v);},
-                Err(v) => {self.loaded_channels.insert(current_channel, vec![Msg::new()]);}
+                Ok(v) => {
+                    self.loaded_channels.insert(current_channel, v);
+                }
+                Err(_) => {
+                    self.loaded_channels
+                        .insert(current_channel, vec![Msg::new()]);
+                }
             }
         }
     }
@@ -147,9 +156,11 @@ impl App {
         match self.mode {
             DisplayMode::GuildMode => {
                 self.guilds.previous();
-                return
-            },
-            DisplayMode::ChannelMode => {self.items.previous();}
+                return;
+            }
+            DisplayMode::ChannelMode => {
+                self.items.previous();
+            }
         }
 
         let current_channel = self.get_channel();
@@ -159,8 +170,13 @@ impl App {
             let messages = wrapper::messages(&self.conn, &current_channel);
 
             match messages {
-                Ok(v) => {self.loaded_channels.insert(current_channel, v);},
-                Err(v) => {self.loaded_channels.insert(current_channel, vec![Msg::new()]);}
+                Ok(v) => {
+                    self.loaded_channels.insert(current_channel, v);
+                }
+                Err(_) => {
+                    self.loaded_channels
+                        .insert(current_channel, vec![Msg::new()]);
+                }
             }
         }
     }

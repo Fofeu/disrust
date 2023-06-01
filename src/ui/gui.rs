@@ -4,25 +4,25 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use std::sync::mpsc::Receiver;
 use std::{error::Error, io};
 use tui::{
     backend::{Backend, CrosstermBackend},
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::Spans,
-    widgets::{Block, BorderType, Borders, ListItem, List, Paragraph},
+    widgets::{Block, BorderType, Borders, List, ListItem, Paragraph},
     Frame, Terminal,
 };
-use std::sync::mpsc::Receiver;
 
 use std::time::Duration;
 use std::time::Instant;
 
-use crate::ui::chat_box::{InputMode, ChatBox};
-use crate::ui::channels::App;
-use crate::ui::channels::DisplayMode::{GuildMode, ChannelMode};
 use crate::api::data::*;
 use crate::api::gateway_thread;
+use crate::ui::channels::App;
+use crate::ui::channels::DisplayMode::{ChannelMode, GuildMode};
+use crate::ui::chat_box::{ChatBox, InputMode};
 
 pub fn summon_gooey(conn: Connection) -> Result<(), Box<dyn Error>> {
     // setup terminal
@@ -32,9 +32,9 @@ pub fn summon_gooey(conn: Connection) -> Result<(), Box<dyn Error>> {
     // execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
-    
+
     // conn.auth.1 is the token
-    let gate_rx = gateway_thread::start_thread(&conn.auth.1); 
+    let gate_rx = gateway_thread::start_thread(&conn.auth.1);
     let guilds = gate_rx.recv().unwrap().guilds;
 
     let mut app = App::new(guilds, conn);
@@ -58,15 +58,18 @@ pub fn summon_gooey(conn: Connection) -> Result<(), Box<dyn Error>> {
 }
 
 //Main loop
-fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App, cbox: &mut ChatBox, gate_rx: &Receiver<GatewayResponse>)
-         -> io::Result<()> {
-            
+fn run_app<B: Backend>(
+    terminal: &mut Terminal<B>,
+    app: &mut App,
+    cbox: &mut ChatBox,
+    gate_rx: &Receiver<GatewayResponse>,
+) -> io::Result<()> {
     let tick_rate = Duration::from_millis(250);
     let mut last_tick = Instant::now();
     loop {
         match gate_rx.try_recv() {
-            Ok(v) => {app.react_to_gateway(&v)},
-            Err(_v) => {},
+            Ok(v) => app.react_to_gateway(&v),
+            Err(_v) => {}
         }
 
         //Draws the screen. Comment out when debugging
@@ -81,26 +84,24 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App, cbox: &mut Cha
         if crossterm::event::poll(timeout)? {
             if let Event::Key(key) = event::read()? {
                 match cbox.input_mode {
-                    InputMode::Normal => {
-                        match key.code {
-                            KeyCode::Char('q') => return Ok(()),
-                            KeyCode::Char('e') => cbox.toggle(),
-                            KeyCode::Left => app.unselect(),
-                            KeyCode::Down => app.next(),
-                            KeyCode::Up => app.previous(),
-                            KeyCode::Enter => app.enter_guild(),
-                            KeyCode::Esc => app.leave_guild(),
-                            _ => (),
-                        }
+                    InputMode::Normal => match key.code {
+                        KeyCode::Char('q') => return Ok(()),
+                        KeyCode::Char('e') => cbox.toggle(),
+                        KeyCode::Left => app.unselect(),
+                        KeyCode::Down => app.next(),
+                        KeyCode::Up => app.previous(),
+                        KeyCode::Enter => app.enter_guild(),
+                        KeyCode::Esc => app.leave_guild(),
+                        _ => (),
                     },
-                    InputMode::Editing => {
-                        match key.code {
-                            KeyCode::Enter => cbox.send_message(app),
-                            KeyCode::Esc => cbox.toggle(),
-                            KeyCode::Char(c) => cbox.input.push(c),
-                            KeyCode::Backspace => {cbox.input.pop();},
-                            _ => (),
+                    InputMode::Editing => match key.code {
+                        KeyCode::Enter => cbox.send_message(app),
+                        KeyCode::Esc => cbox.toggle(),
+                        KeyCode::Char(c) => cbox.input.push(c),
+                        KeyCode::Backspace => {
+                            cbox.input.pop();
                         }
+                        _ => (),
                     },
                 }
             }
@@ -138,14 +139,18 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App, cbox: &mut ChatBox) {
     // Create the channels part
     let mut items = guilds_to_listitems(&app.guilds.items);
     match app.mode {
-        GuildMode => {},
+        GuildMode => {}
         ChannelMode => {
             items = channels_to_listitems(&app.items.items);
         }
     }
 
     let items = List::new(items)
-        .block(Block::default().borders(Borders::ALL).title("Guilds and Channels"))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Guilds and Channels"),
+        )
         .highlight_style(
             Style::default()
                 .bg(Color::LightGreen)
@@ -158,13 +163,13 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App, cbox: &mut ChatBox) {
     match app.mode {
         GuildMode => {
             f.render_stateful_widget(items, chunks[0], &mut app.guilds.state);
-        },
+        }
         //Weird that let items isn't used, or so vscode thinks
         ChannelMode => {
             f.render_stateful_widget(items, chunks[0], &mut app.items.state);
         }
     }
-    
+
     // Could be better, a lot of cloning
     let title = app.get_current_title();
     let chat_messages = app.get_messages();
@@ -173,20 +178,19 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App, cbox: &mut ChatBox) {
     match chat_messages {
         Some(v) => {
             let chat_messages = msg_to_list(v, &right_chunks[0]);
-            let chat = List::new(chat_messages)
-                .block(Block::default().borders(Borders::ALL)
-                .title(title));
+            let chat =
+                List::new(chat_messages).block(Block::default().borders(Borders::ALL).title(title));
 
             f.render_widget(chat, right_chunks[0]);
-        },
+        }
         None => {
-            let ad = vec![ListItem::new("Check my other projects on https://github.com/DvorakDwarf")];
-            let chat = List::new(ad)
-                .block(Block::default().borders(Borders::ALL)
-                .title(title));
+            let ad = vec![ListItem::new(
+                "Check my other projects on https://github.com/DvorakDwarf",
+            )];
+            let chat = List::new(ad).block(Block::default().borders(Borders::ALL).title(title));
 
             f.render_widget(chat, right_chunks[0]);
-        },
+        }
     }
 
     //The chat box is here
@@ -199,7 +203,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App, cbox: &mut ChatBox) {
     f.render_widget(input, right_chunks[1]);
 
     match cbox.input_mode {
-        InputMode::Normal => {}, //hides cursor
+        InputMode::Normal => {} //hides cursor
         InputMode::Editing => {
             //Set cursor as visible and move to right spot
             f.set_cursor(
@@ -215,13 +219,13 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App, cbox: &mut ChatBox) {
 // Converts channels into list items that work with the tui-rs widget
 fn channels_to_listitems(items: &Vec<Channel>) -> Vec<ListItem> {
     let item_list: Vec<ListItem> = items
-    .iter()
-    .map(|i| {
-        let text = i.name.clone();
-        let lines = vec![Spans::from(text)];
-        ListItem::new(lines).style(Style::default().fg(Color::Black).bg(Color::White))
-    })
-    .collect();
+        .iter()
+        .map(|i| {
+            let text = i.name.clone();
+            let lines = vec![Spans::from(text)];
+            ListItem::new(lines).style(Style::default().fg(Color::Black).bg(Color::White))
+        })
+        .collect();
 
     return item_list;
 }
@@ -229,13 +233,13 @@ fn channels_to_listitems(items: &Vec<Channel>) -> Vec<ListItem> {
 // Converts guilds into list items that work with the tui-rs widget
 fn guilds_to_listitems(items: &Vec<Guild>) -> Vec<ListItem> {
     let item_list: Vec<ListItem> = items
-    .iter()
-    .map(|i| {
-        let text = i.name.clone();
-        let lines = vec![Spans::from(text)];
-        ListItem::new(lines).style(Style::default().fg(Color::Black).bg(Color::White))
-    })
-    .collect();
+        .iter()
+        .map(|i| {
+            let text = i.name.clone();
+            let lines = vec![Spans::from(text)];
+            ListItem::new(lines).style(Style::default().fg(Color::Black).bg(Color::White))
+        })
+        .collect();
 
     return item_list;
 }
@@ -259,7 +263,7 @@ fn msg_to_list(messages: Vec<Msg>, border: &Rect) -> Vec<ListItem> {
         return items;
     } else {
         //Weird length/index bs. +2 seems to work fine tho
-        let slice = items.as_slice()[items.len()-height+3..].to_vec();
+        let slice = items.as_slice()[items.len() - height + 3..].to_vec();
         return slice;
     }
 }
