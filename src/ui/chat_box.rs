@@ -1,5 +1,4 @@
-use crate::api::wrapper;
-use crate::ui::channels::{App, DisplayMode};
+// use crate::ui::channels::DisplayMode;
 
 #[derive(PartialEq, Debug)]
 pub enum InputMode {
@@ -32,16 +31,21 @@ impl ChatBox {
         }
     }
 
-    //Sends message from the chat box, clears it
-    pub fn send_message(&mut self, app: &mut App) {
-        match app.mode {
-            DisplayMode::GuildMode => self.input_mode = InputMode::Normal,
-            DisplayMode::ChannelMode => {
-                //Here so messages dissappear instantly
-                let input_copy = self.input.clone();
-                self.input.clear();
-                wrapper::send_message(app, &input_copy);
-            }
-        }
+    //Clear the ChatBox
+    pub fn clear(&mut self) {
+        self.input.clear();
     }
+
+    // //Sends message from the chat box, clears it
+    // pub async fn send_message(&mut self, app: &mut App) {
+    //     match app.mode {
+    //         DisplayMode::GuildMode => self.input_mode = InputMode::Normal,
+    //         DisplayMode::ChannelMode => {
+    //             //Here so messages dissappear instantly
+    //             let input_copy = self.input.clone();
+    //             self.input.clear();
+    //             wrapper::send_message(app, &input_copy).await;
+    //         }
+    //     }
+    // }
 }

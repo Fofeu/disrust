@@ -1,19 +1,20 @@
 mod api;
+mod model;
 mod ui;
-use crate::api::data::*; //has all the structs used
-use ui::gui;
+use crate::ui::gui;
 
 //REWRITE TO BE LESS SPAGHETTI EVENTUALLY
-fn main() {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     println!("Please paste in your token. If you don't know what that is, please google");
     let mut token = String::new();
     std::io::stdin()
         .read_line(&mut token)
         .expect("Could not read input");
-    token.pop(); //get rid of \n on the end
+    token.retain(|c| !c.is_whitespace()); //get rid of any whitespace
 
     //Simplified way of passing token and client
-    let conn = Connection::new(&token);
+    api::gateway_thread::start_thread(&token).await
 
-    gui::summon_gooey(conn).expect("Could not run the main script. Possibly incorrect token.");
+    //gui::summon_gooey().await.expect("Could not run the main script. Possibly incorrect token.");
 }
